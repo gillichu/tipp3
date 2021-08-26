@@ -490,6 +490,207 @@ class HMMSearchJob(ExternalSeppJob):
         return results
 
 
+class PplacerXRJob(ExternalSeppJob):
+    def __init__(self, **kwargs):
+        self.job_type = 'pplacer-xr'
+        # pdb.set_trace()
+        ExternalSeppJob.__init__(self, self.job_type, **kwargs)
+        '''The following is just a string indicating the type of input provided
+        to pplacer job. Different setup methods can setup this job with
+        different types of input (i.e. reference package, separate refernce
+        alignment, etc.)
+        '''
+        self.setup_setting = None
+        self.tree_file = None
+        self.backbone_alignment_file = None
+        self.info_file = None
+        self.extended_alignment_file = None
+        self.full_extended_alignment_file = None
+        self.out_file = None
+
+    def setup(self, backbone_alignment_file, tree_file, info_file,
+              extended_alignment_file, full_extended_alignment_file,
+              output_file, **kwargs):
+        # pdb.set_trace()
+        self.backbone_alignment_file = backbone_alignment_file
+        self.tree_file = tree_file
+        self.info_file = info_file
+        self.extended_alignment_file = extended_alignment_file
+        self.full_extended_alignment_file = full_extended_alignment_file
+        self.out_file = output_file
+        self._kwargs = kwargs
+        self.setup_setting = "File:TrInEx"
+
+    def partial_setup_for_subproblem(self, subproblem, info_file, i, **kwargs):
+        """ Automatically sets up a job given a subproblem object.
+        Note that extended alignment and the backbone_alignment_file are just
+        file names, referring to empty files at this point. These files needs
+        to be created before the job is queued.
+        """
+        # pdb.set_trace()
+        assert isinstance(subproblem, sepp.problem.SeppProblem)
+        self.backbone_alignment_file = sepp.filemgr.tempfile_for_subproblem(
+            "pplacer.backbone.", subproblem, ".fasta")
+        self.tree_file = sepp.filemgr.tempfile_for_subproblem(
+            "pplacer.tree.", subproblem, ".tre")
+        self.extended_alignment_file = \
+            sepp.filemgr.tempfile_for_subproblem("pplacer.extended.%d." % i,
+                                                 subproblem, ".fasta")
+        self.full_extended_alignment_file = \
+            sepp.filemgr.tempfile_for_subproblem(
+                "pplacer.full.extended.%d." % i, subproblem, ".fasta")
+        self.out_file = os.path.join(
+            sepp.filemgr.tempdir_for_subproblem(subproblem),
+            self.extended_alignment_file.replace("fasta", "jplace"))
+        assert isinstance(subproblem.subtree, PhylogeneticTree)
+        subproblem.subtree.write_newick_to_path(self.tree_file,)
+
+        self.info_file = info_file.name \
+            if hasattr(info_file, "name") else info_file
+        self._kwargs = kwargs
+        self.setup_setting = "File:TrInEx"
+
+    def get_invocation(self):
+        invoc = [self.path,
+                 "--out-dir", os.path.dirname(self.out_file)]
+        if "user_options" in self._kwargs:
+            invoc.extend(self._kwargs["user_options"].split())
+
+        if self.setup_setting == "File:TrInEx":
+            invoc.extend(["-j", "1",
+                          "-r", self.backbone_alignment_file,
+                          "-s", self.info_file,
+                          "-t", self.tree_file,
+                          "--groups", "10",
+                          self.extended_alignment_file])
+        return invoc
+
+    def characterize_input(self):
+        if self.setup_setting == "File:TrInEx":
+            return ("backbone_alignment_file:%s, tree_file:%s, info_file:%s, "
+                    "extended alignment:%s, output:%s") % (
+                        self.backbone_alignment_file, self.tree_file,
+                        self.info_file, self.extended_alignment_file,
+                        self.out_file)
+        else:
+            return "Not setup properly"
+
+    def read_results(self):
+        """
+        Since the output file can be huge, we don't want to read it here,
+        because it will need to get pickled and unpickled. Instead, we just
+        send back the file name, and will let the caller figure out what to do
+        with it.
+
+        But if it is a fake job, then return nothing
+        """
+        if self.fake_run:
+            return None
+        assert os.path.exists(self.out_file)
+        assert os.stat(self.out_file)[stat.ST_SIZE] != 0
+        return self.out_file
+
+
+class PplacerJob(ExternalSeppJob):
+    def __init__(self, **kwargs):
+        self.job_type = 'pplacer'
+        # pdb.set_trace()
+        ExternalSeppJob.__init__(self, self.job_type, **kwargs)
+        '''The following is just a string indicating the type of input provided
+        to pplacer job. Different setup methods can setup this job with
+        different types of input (i.e. reference package, separate refernce
+        alignment, etc.)
+        '''
+        self.setup_setting = None
+        self.tree_file = None
+        self.backbone_alignment_file = None
+        self.info_file = None
+        self.extended_alignment_file = None
+        self.full_extended_alignment_file = None
+        self.out_file = None
+
+    def setup(self, backbone_alignment_file, tree_file, info_file,
+              extended_alignment_file, full_extended_alignment_file,
+              output_file, **kwargs):
+        # pdb.set_trace()
+        self.backbone_alignment_file = backbone_alignment_file
+        self.tree_file = tree_file
+        self.info_file = info_file
+        self.extended_alignment_file = extended_alignment_file
+        self.full_extended_alignment_file = full_extended_alignment_file
+        self.out_file = output_file
+        self._kwargs = kwargs
+        self.setup_setting = "File:TrInEx"
+
+    def partial_setup_for_subproblem(self, subproblem, info_file, i, **kwargs):
+        """ Automatically sets up a job given a subproblem object.
+        Note that extended alignment and the backbone_alignment_file are just
+        file names, referring to empty files at this point. These files needs
+        to be created before the job is queued.
+        """
+        # pdb.set_trace()
+        assert isinstance(subproblem, sepp.problem.SeppProblem)
+        self.backbone_alignment_file = sepp.filemgr.tempfile_for_subproblem(
+            "pplacer.backbone.", subproblem, ".fasta")
+        self.tree_file = sepp.filemgr.tempfile_for_subproblem(
+            "pplacer.tree.", subproblem, ".tre")
+        self.extended_alignment_file = \
+            sepp.filemgr.tempfile_for_subproblem("pplacer.extended.%d." % i,
+                                                 subproblem, ".fasta")
+        self.full_extended_alignment_file = \
+            sepp.filemgr.tempfile_for_subproblem(
+                "pplacer.full.extended.%d." % i, subproblem, ".fasta")
+        self.out_file = os.path.join(
+            sepp.filemgr.tempdir_for_subproblem(subproblem),
+            self.extended_alignment_file.replace("fasta", "jplace"))
+        assert isinstance(subproblem.subtree, PhylogeneticTree)
+        subproblem.subtree.write_newick_to_path(self.tree_file,)
+
+        self.info_file = info_file.name \
+            if hasattr(info_file, "name") else info_file
+        self._kwargs = kwargs
+        self.setup_setting = "File:TrInEx"
+
+    def get_invocation(self):
+        invoc = [self.path,
+                 "--out-dir", os.path.dirname(self.out_file)]
+        if "user_options" in self._kwargs:
+            invoc.extend(self._kwargs["user_options"].split())
+
+        if self.setup_setting == "File:TrInEx":
+            invoc.extend(["-j", "1",
+                          "-r", self.backbone_alignment_file,
+                          "-s", self.info_file,
+                          "-t", self.tree_file,
+                          "--groups", "10",
+                          self.extended_alignment_file])
+        return invoc
+
+    def characterize_input(self):
+        if self.setup_setting == "File:TrInEx":
+            return ("backbone_alignment_file:%s, tree_file:%s, info_file:%s, "
+                    "extended alignment:%s, output:%s") % (
+                        self.backbone_alignment_file, self.tree_file,
+                        self.info_file, self.extended_alignment_file,
+                        self.out_file)
+        else:
+            return "Not setup properly"
+
+    def read_results(self):
+        """
+        Since the output file can be huge, we don't want to read it here,
+        because it will need to get pickled and unpickled. Instead, we just
+        send back the file name, and will let the caller figure out what to do
+        with it.
+
+        But if it is a fake job, then return nothing
+        """
+        if self.fake_run:
+            return None
+        assert os.path.exists(self.out_file)
+        assert os.stat(self.out_file)[stat.ST_SIZE] != 0
+        return self.out_file
+
 class PplacerJob(ExternalSeppJob):
     def __init__(self, **kwargs):
         self.job_type = 'pplacer'
